@@ -72,7 +72,7 @@ These are some 32x32 lambda=0.5 results included in arXiv:0902.0045
 $ cd ~/zarchives/Amherst/thesis/code/Phi4/productionRun/
 $ grep "^-0.7,0.5" 32-50.csv
 
-I believe that file used 16384+16384 sweeps, so compare it with
+arXiv:0902.0045 says that file used 16384+16384 sweeps, so compare it with
 $ time ./2d_phi4 -7000 50 32 16384 16384
 
 Comparison:   arXiv     current
