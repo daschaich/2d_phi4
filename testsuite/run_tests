@@ -1,0 +1,30 @@
+#!/bin/bash
+# This script needs to be run from the testsuite directory
+
+# Only have a single target at the moment, so this script is simple
+tag="L32_l0.5_muSq-0.7"
+
+# Compile
+cd ../
+echo "Compiling..."
+if ! make >& /dev/null ; then
+  echo "ERROR: compilation failed"
+  make
+  exit
+fi
+
+# Run
+cd testsuite/
+rm -f $tag.out
+echo "Running..."
+../2d_phi4 -7000 50 32 1024 1024 > $tag.out
+
+# Check
+d="`diff $tag.ref $tag.out`"
+if [ -n "$d" ] ; then   # Non-zero string length
+  echo "$tag.ref and $tag.out differ:"
+  echo "$d"
+else
+  echo "PASS: reference output reproduced"
+fi
+exit

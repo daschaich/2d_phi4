@@ -28,6 +28,7 @@
 *.lib
 
 # Executables
+2d_phi4
 *.exe
 *.out
 *.app

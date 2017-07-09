@@ -1,48 +1,89 @@
-This README file includes some basic information about compiling, running, and testing these phi^4 simulation programs.
-
 CONTENTS
-    --Compilation instructions
-    --Usage
-    --A brief sketch of the phase spaces
+--Compilation and dependencies
+--Usage
+--A brief sketch of the phase diagram
+--Comparison with arXiv:0902.0045
 
 
-COMPILATION INSTRUCTIONS
-The various algorithms are described in the report included in this directory.
-
-To compile the code using the fast algorithm, simply use "make".
-To compile the simple but slower version, use "make simple".
-To compile the version that weights the functions by path multiplicity, use "make weighted".
-To compile the version with the FFT, use "make FFT".
-To compile the four-dimensional version (simple algorithm), use "make 4d".
+COMPILATION AND DEPENDENCIES
+To compile the (serial) executable `2d_phi4` using g++, just run `make`
+GSL is required: https://www.gnu.org/software/gsl/
 
 
 USAGE
-All versions of the program take five command line parameters: \mu_0 and \lambda from the \phi^4 Lagrangian shown in the report; the length of one side of the lattice, which is constrained to be square (in two dimensions) or hypercubic (in four); the number of iterations to perform to initialize the lattice; and the number of iterations with measurements to perform.
+The `2d_phi4` program takes five command-line parameters:
+  $ ./2d_phi4  10000*mu_0^2  100*lambda  L  therm  meas
 
-The programs print all output on a single comma-separated line.  While this is not the most convenient form for human reading, we generally pipe the output of several runs with different parameters to a file that can be loaded into a table in Mathematica or other analysis programs for easy manipulation.
+* mu_0^2 is the bare mass squared in the lagrangian
+* lambda is the bare phi^4 coupling in the lagrangian
+* L is the length of each side of the (square) lattice
+* therm is the number of sweeps with which to thermalize the system
+* meas is the number of sweeps to run with measurements turned on
+
+mu_0 and lambda are scaled so that the input is always an integer
+This makes bash scripts a bit easier to write, but may soon be changed...
+
+Lagrangian normalization conventions:
+  L = (1/2)d_mu phi d^mu phi - (1/2)mu_0^2 phi^2 - (1/4)lambda phi^4
+
+Currently only final averages are printed
+This may soon be changed, especially since error analysis is poor...
+(Specifically, no errors are estimated for derived quantities
+ such as the specific heat, susceptibility or Binder cumulant,
+ which would need to be wrapped in a jackknife...)
+
+The program prints all the following output on a single comma-separated line
+This is not convenient for human reading, and may also be changed soon...
+1) mu_0
+2) lambda
+3) Autocorrelation time
+4) The resulting (non-integer) number of decorrelated measurements
+5--6) The average energy <E> and its uncertainty
+7--8) <|phi|> and its uncertainty
+9) The specific heat <E^2> - <E>^2
+10) The susceptibility <phi^2> - <|phi|>^2
+11) The Binder cumulant 1 - <phi^4> / (3 * <phi^2>^2);
+12) The bimodality
+13) <phi>
+14) Normalization of autocorrelation function
+1*L/2 (real) components of position-space two-point function
+2*L/2 (complex) components of momentum-space two-point function
 
 
-A BRIEF SKETCH OF THE PHASE SPACES
-We typically mapped the mu_0-lambda phase space by varying mu_0 for fixed lambda.  Listed below are the rough mu_0 around which phase transitions occur for various lambda.  The transitions are broader for smaller lattices and sharper for larger ones.  In all cases, the symmetric (disorded) phase can be studied by increasing mu_0, and the broken (ordered) phase by decreasing mu_0.
+A BRIEF SKETCH OF THE PHASE DIAGRAM
+We typically fix lambda and vary mu_0 to find the transition
+Listed below are the approximate mu_0 of the transition for various lambda
+The transitions are broader for smaller L and sharpen as L increases
+Larger  (less negative) mu_0 put the system in the symmetric (disorded) phase
+Smaller (more negative) mu_0 put the system in the broken (ordered) phase
+  lambda = 1.00 --> mu_0 ~ -1.27
+  lambda = 0.70 --> mu_0 ~ -0.95
+  lambda = 0.50 --> mu_0 ~ -0.72
+  lambda = 0.25 --> mu_0 ~ -0.40
+  lambda = 0.10 --> mu_0 ~ -0.18
+  lambda = 0.05 --> mu_0 ~ -0.10
+  lambda = 0.03 --> mu_0 ~ -0.06
+  lambda = 0.02 --> mu_0 ~ -0.04
+  lambda = 0.01 --> mu_0 ~ -0.02
 
-In 1+1 dimensions,
-    for lambda = 1.0, mu_0 ~ -1.27
-    for lambda = .70, mu_0 ~ -0.95
-    for lambda = .50, mu_0 ~ -0.72
-    for lambda = .25, mu_0 ~ -0.40
-    for lambda = .10, mu_0 ~ -0.18
-    for lambda = .05, mu_0 ~ -0.10
-    for lambda = .03, mu_0 ~ -0.06
-    for lambda = .02, mu_0 ~ -0.04
-    for lambda = .01, mu_0 ~ -0.02
 
-In 3+1 dimensions,
-    for lambda = 1.0, mu_0 ~ -0.44
-    for lambda = .70, mu_0 ~ -0.31
-    for lambda = .50, mu_0 ~ -0.22
-    for lambda = .25, mu_0 ~ -0.11
-    for lambda = .10, mu_0 ~ -0.04
-    for lambda = .05, mu_0 ~ -0.02
-    for lambda = .03, mu_0 ~ -0.01
-    for lambda = .02, mu_0 ~ -0.008
-    for lambda = .01, mu_0 ~ -0.005
+COMPARISON WITH arXiv:0902.0045
+These are some 32x32 lambda=0.5 results included in arXiv:0902.0045
+$ cd ~/zarchives/Amherst/thesis/code/Phi4/productionRun/
+$ grep "^-0.7,0.5" 32-50.csv
+
+I believe that file used 16384+16384 sweeps, so compare it with
+$ time ./2d_phi4 -7000 50 32 16384 16384
+
+Comparison:   arXiv     current
+  <E>         0.359025  0.359657
+  <E>_err     0.000979  0.000906
+  <|phi|>     0.434639  0.432487
+  <|phi|>_err 0.006402  0.005864
+  spec heat   0.806815  0.798230
+  suscept    34.468476 33.440455
+  binder      0.524037  0.526073
+  bimod       0.707902  0.751980
+  <phi>       0.001692  0.006261
+  autocor     9.974279  8.625745
+  autocor(0)  0.033661  0.032657
