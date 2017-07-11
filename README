@@ -1,56 +1,63 @@
 CONTENTS
 --Compilation and dependencies
---Usage
+--Usage and input
+--Output
 --A brief sketch of the phase diagram
 --Comparison with arXiv:0902.0045
 
 
-COMPILATION AND DEPENDENCIES
++++COMPILATION AND DEPENDENCIES
 To compile the (serial) executable `2d_phi4` using g++, just run `make`
 GSL is required: https://www.gnu.org/software/gsl/
 
 
-USAGE
++++USAGE AND INPUT
 The `2d_phi4` program takes five command-line parameters:
-  $ ./2d_phi4  10000*mu_0^2  100*lambda  L  therm  meas
+  $ ./2d_phi4  mu_0^2  lambda  L  init  meas
 
 * mu_0^2 is the bare mass squared in the lagrangian
 * lambda is the bare phi^4 coupling in the lagrangian
 * L is the length of each side of the (square) lattice
-* therm is the number of sweeps with which to thermalize the system
-* meas is the number of sweeps to run with measurements turned on
-
-mu_0 and lambda are scaled so that the input is always an integer
-This makes bash scripts a bit easier to write, but may soon be changed...
+* init is the number of iterations with which to initialize the system
+* meas is the number of iterations subsequently run with measurements
 
 Lagrangian normalization conventions:
   L = (1/2)d_mu phi d^mu phi - (1/2)mu_0^2 phi^2 - (1/4)lambda phi^4
 
-Currently only final averages are printed
-This may soon be changed, especially since error analysis is poor...
-(Specifically, no errors are estimated for derived quantities
- such as the specific heat, susceptibility or Binder cumulant,
- which would need to be wrapped in a jackknife...)
 
-The program prints all the following output on a single comma-separated line
-This is not convenient for human reading, and may also be changed soon...
-1) mu_0
-2) lambda
-3) Autocorrelation time
-4) The resulting (non-integer) number of decorrelated measurements
-5--6) The average energy <E> and its uncertainty
-7--8) <|phi|> and its uncertainty
-9) The specific heat <E^2> - <E>^2
-10) The susceptibility <phi^2> - <|phi|>^2
-11) The Binder cumulant 1 - <phi^4> / (3 * <phi^2>^2);
-12) The bimodality
-13) <phi>
-14) Normalization of autocorrelation function
-1*L/2 (real) components of position-space two-point function
-2*L/2 (complex) components of momentum-space two-point function
++++OUTPUT
+Each iteration consists of _gap_ Metropolis sweeps of the lattice,
+followed by a Wolff cluster flip acting on the embedded Ising system
+Currently gap=5 is hard-coded, but may not be optimal...
+
+After each Metropolis + Wolff iteration we print:
+* The energy E and magnetization phi
+* The position-space two-point function (L/2 real components)
+* The momentum-space two-point function (L/2 complex components)
+
+At the end of the _meas_ iterations we print:
+* The autocorrelation time of |phi|,
+  the resulting (non-integer) number of decorrelated measurements
+  and the normalization Chi[0] of the autocorrelation function
+* The average energy <E> and <|phi|>
+  with uncertainties incorporating the autocorrelation time,
+  and <phi> itself
+  (which should be near zero due to either disorder or cluster flipping)
+* Derived quantities:
+  The specific heat <E^2> - <E>^2
+  The susceptibility <phi^2> - <|phi|>^2
+  The Binder cumulant 1 - <phi^4> / (3 * <phi^2>^2);
+  The bimodality (with a 21-bin histogram currently hard-coded)
+* The average position-space two-point function (without uncertainties)
+* The average momentum-space two-point function (without uncertainties)
+
+Currently no uncertainties are estimated for the derived quantities
+If we continue to include them
+(rather than moving these analyses to offline scripts)
+then a jackknife or bootstrap procedure should be added...
 
 
-A BRIEF SKETCH OF THE PHASE DIAGRAM
++++A BRIEF SKETCH OF THE PHASE DIAGRAM
 We typically fix lambda and vary mu_0 to find the transition
 Listed below are the approximate mu_0 of the transition for various lambda
 The transitions are broader for smaller L and sharpen as L increases
@@ -67,13 +74,13 @@ Smaller (more negative) mu_0 put the system in the broken (ordered) phase
   lambda = 0.01 --> mu_0 ~ -0.02
 
 
-COMPARISON WITH arXiv:0902.0045
++++COMPARISON WITH arXiv:0902.0045
 These are some 32x32 lambda=0.5 results included in arXiv:0902.0045
 $ cd ~/zarchives/Amherst/thesis/code/Phi4/productionRun/
 $ grep "^-0.7,0.5" 32-50.csv
 
-arXiv:0902.0045 says that file used 16384+16384 sweeps, so compare it with
-$ time ./2d_phi4 -7000 50 32 16384 16384
+arXiv:0902.0045 says that file used 16384+16384 iterations, so compare it with
+$ time ./2d_phi4 -0.7 0.5 32 16384 16384
 
 Comparison:   arXiv     current
   <E>         0.359025  0.359657

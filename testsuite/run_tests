@@ -17,10 +17,10 @@ fi
 cd testsuite/
 rm -f $tag.out
 echo "Running..."
-../2d_phi4 -7000 50 32 1024 1024 > $tag.out
+../2d_phi4 -0.7 0.5 32 1024 1024 > $tag.out
 
 # Check
-d="`diff $tag.ref $tag.out`"
+d="`diff -I'Time' -I'^start' -I'seconds' $tag.ref $tag.out`"
 if [ -n "$d" ] ; then   # Non-zero string length
   echo "$tag.ref and $tag.out differ:"
   echo "$d"

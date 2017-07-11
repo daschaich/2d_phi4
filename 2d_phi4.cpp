@@ -1,84 +1,95 @@
 // -----------------------------------------------------------------
 // Run Monte Carlo calculation using mix of Metropolis
 // and Wolff algorithms and periodic boundary conditions
-// Print energy, average phi, specific heat, susceptibility,
+// Print energy, average phi, specific heat, suscept,
 // autocorrelation times, errors, correlations, etc.
 #include <math.h>                   // For floor and sqrt
 #include <stdio.h>                  // For printf and fprintf
+#include <ctime>                    // For clock
 #include <gsl/gsl_sf_log.h>         // For natural log
 #include <gsl/gsl_math.h>           // For power
-#include <gsl/gsl_fft_real.h>       // Fast Fourier Transform
 #include "Lattice.hh"               // Method and data declarations
 // -----------------------------------------------------------------
 
 
 
 // -----------------------------------------------------------------
-// Declare and initialize data
+// Declare and initialize global data
 unsigned int randomSite = 0;
 
-double aveEnergy        = 0;
-double avePhi           = 0;
-double avePhiAbs        = 0;
-double squaredEnergy    = 0;
-double squaredPhi       = 0;
-double quartPhi         = 0;
-double cumulant         = 0;
-double specificHeat     = 0;
-double susceptibility   = 0;
+double aveEnergy = 0.0, squaredEnergy = 0.0, energyStDev = 0.0;
+double avePhi = 0.0, avePhiAbs = 0.0, squaredPhi = 0.0, phiStDev = 0.0;
+double quartPhi = 0.0, cumulant = 0.0;
+double specHeat = 0.0, suscept = 0.0;
 
 // Bimodality binning stuff
-double maxPhi                   = 0;
+// Make (integer) counts doubles to avoid casting later on
 static const unsigned int bins  = 21;
 unsigned int counts[bins];
-double midCounts                = 0;            // Make these double now
-double maxCounts                = 0;            // to avoid casts later
-double bimodality               = 0;
+double midCounts = 0.0, maxCounts = 0.0;
+double maxPhi = 0.0, bimod = 0.0;
 
-double scaleFactor  = 0;
-double autocorTime  = 0;
-double energyStDev  = 0;
-double phiStDev     = 0;
+// Autocorrelation stuff -- scaleFactor is Chi[0]
+double scaleFactor = 0.0, autocorTime = 0.0;
 // -----------------------------------------------------------------
 
 
 
 // -----------------------------------------------------------------
-// Calculate autocorrelation time and necessary points of
-// autocorrelation function
-unsigned int calcAutocor(unsigned int sampleSize, double* phiDataAbs,
-                         double* autocorrelation) {
+// Timing helper routines
+// Print time stamp
+void time_stamp(char *msg) {
+  time_t time_stamp;
+
+  time(&time_stamp);
+  printf("%s: %s\n", msg, ctime(&time_stamp));
+  fflush(stdout);
+}
+
+// Double precision CPU time in seconds
+double dclock() {
+  return (((double)clock()) / CLOCKS_PER_SEC);
+}
+// -----------------------------------------------------------------
+
+
+
+// -----------------------------------------------------------------
+// Calculate autocorrelation time of |phi|
+// and necessary points of autocorrelation function
+unsigned int calcAutocor(unsigned int meas, double *phiDataAbs,
+                         double *autocor) {
 
   unsigned int i, t = 1;
-  double temp;
+  double td;
 
   // Generate Chi[0] for scaling purposes
-  for (i = 0; i < sampleSize; i++)
+  for (i = 0; i < meas; i++)
     scaleFactor += (phiDataAbs[i] * phiDataAbs[i]);
-  scaleFactor /= sampleSize;
+  scaleFactor /= meas;
   scaleFactor -= avePhiAbs * avePhiAbs;
 
-  autocorrelation[0] = 1;
+  autocor[0] = 1;
 
-  // Only calculate points of autocorrelation function that
+  // Only calculate points of autocor function that
   // roughly conform to exponential approximation
-  while (t < sampleSize) {
-    autocorrelation[t] = 0;
-    for (i = 0; i < sampleSize - t; i++)
-      autocorrelation[t] += (phiDataAbs[i] * phiDataAbs[i + t]);
+  while (t < meas) {
+    autocor[t] = 0;
+    for (i = 0; i < meas - t; i++)
+      autocor[t] += (phiDataAbs[i] * phiDataAbs[i + t]);
 
-    autocorrelation[t] /= (sampleSize - t);
-    autocorrelation[t] -= avePhiAbs * avePhiAbs;
-    if (autocorrelation[t] < 0)     // Not exponential!
+    autocor[t] /= (meas - t);
+    autocor[t] -= avePhiAbs * avePhiAbs;
+    if (autocor[t] < 0)     // Not exponential!
       break;
 
-    autocorrelation[t] /= scaleFactor;      // Scale by Chi[0]
-    if (autocorrelation[t] >= autocorrelation[t - 1])   // Not exponential!
+    autocor[t] /= scaleFactor;      // Scale by Chi[0]
+    if (autocor[t] >= autocor[t - 1])   // Not exponential!
       break;
 
-    temp = -gsl_sf_log(autocorrelation[t]);
-    temp = t / temp;
-    autocorTime += temp;
+    td = -gsl_sf_log(autocor[t]);
+    td = t / td;
+    autocorTime += td;
 
     t++;
   }
@@ -89,18 +100,18 @@ unsigned int calcAutocor(unsigned int sampleSize, double* phiDataAbs,
 
 
 // -----------------------------------------------------------------
-// Bin values of phi and calculate bimodality
+// Bin values of phi and calculate bimod
 // Values of phi range from -maxPhi to +maxPhi
 // Bin i of n will contain values greater than maxPhi(2*i/n - 1)
 // and less than maxPhi*(2*(i+1)/n - 1)  (where i = 0...n - 1)
-void calcBimodality(unsigned int sampleSize, double* phiData) {
+void calcBimodality(unsigned int meas, double *phiData) {
   unsigned int i, j;
   double lowerBound, upperBound;
 
   for (i = 0; i < bins; i++)
     counts[i] = 0;
 
-  for (i = 0; i < sampleSize; i++)
+  for (i = 0; i < meas; i++)
     for (j = 0; j < bins; j++) {
       lowerBound = maxPhi * (2 * (double)j / (double)bins - 1);
       upperBound = maxPhi * (2 * ((double)j + 1) / (double)bins - 1);
@@ -115,7 +126,7 @@ void calcBimodality(unsigned int sampleSize, double* phiData) {
     if (counts[i] > maxCounts)
       maxCounts = counts[i];
 
-  bimodality = 1 - (midCounts / maxCounts);
+  bimod = 1 - (midCounts / maxCounts);
 }
 // -----------------------------------------------------------------
 
@@ -123,46 +134,61 @@ void calcBimodality(unsigned int sampleSize, double* phiData) {
 
 // -----------------------------------------------------------------
 // Main method runs simulation using command line parameters
-int main(int argc, char** const argv) {
+int main(int argc, const char **argv) {
   unsigned int i, j, k, t, gap = 5;
+  double td, td2;
 
   if (argc != 6) {
-    fprintf(stderr, "Usage: %s muSquared lambda length ", argv[0]);
-    fprintf(stderr, "init sampleSize\n");
+    fprintf(stderr, "Usage: %s muSquared lambda L init meas\n", argv[0]);
     fflush(stderr);
     exit(1);
   }
 
-  // Data that depends on command-line parameters
-  double muSquared = atof(argv[1]) / 10000;   // Bare mass squared
-  double lambda = atof(argv[2]) / 100;        // Bare coupling
-  unsigned int length = atoi(argv[3]);        // Lattice length (square)
-  unsigned int latticeSize = length * length;
+  // Load and print data from command-line parameters
+  double muSquared = atof(argv[1]);           // Bare mass squared
+  double lambda = atof(argv[2]);              // Bare coupling
+  unsigned int L = atoi(argv[3]);             // Length of (square) lattice
+  unsigned int latticeSize = L * L;
   unsigned int init = atoi(argv[4]);          // Iterations for equilibration
-  unsigned int sampleSize = atoi(argv[5]);    // Iterations for statistics
+  unsigned int meas = atoi(argv[5]);    // Iterations for statistics
+
+  printf("Two-dimensional phi^4 theory\n");
+  printf("Metropolis with Wolff cluster flip every %d sweeps\n", gap);
+  time_stamp("start");
+  printf("muSquared %.g\n", muSquared);
+  printf("lambda %.g\n", lambda);
+  printf("L %d\n", L);
+  printf("init %d\n", init);
+  printf("meas %d\n\n", meas);
+
+  // Other local data
+  double energyData[meas];
+  double phiData[meas], phiDataAbs[meas];
+  double dtime = -dclock(), wtime;
 
   // Number of uncorrelated measurements -- samplesize divided by
   // autocorrelation time
-  double measurements = 0;
+  double measurements = 0.0;
 
-  double energyData[sampleSize];
-  double phiData[sampleSize];
-  double phiDataAbs[sampleSize];
   // Autocorrelation function -- not all array elements will be used
-  double autocorrelation[sampleSize];
+  double autocor[meas];
 
   // Position-space and momentum-space correlation functions
-  unsigned int halfL = int(length / 2);
-  double posCorr[halfL];
-  double momCorr[halfL];
-  for (i = 0; i < halfL; i++)
+  unsigned int halfL = int(L / 2);
+  double posCorr[halfL], momCorr[halfL];
+  for (i = 0; i < halfL; i++) {
     posCorr[i] = 0;
+    momCorr[i] = 0;
+  }
 
-  Lattice* theLattice = new Lattice(muSquared, lambda, length);
+  Lattice *theLattice = new Lattice(muSquared, lambda, L);
+  td = theLattice->calcTotalEnergy();
+  td2 = theLattice->calcAveragePhi();
+  printf("START %.8g %.8g\n", td, td2);
 
   // Initialize/equilibrate lattice
   // Do cluster update after every _gap_ Metropolis sweeps
-  gap = 5;
+  wtime = -dclock();
   for (i = 0; i < init; i++) {
     for (j = 0; j < gap; j++) {
       for (k = 0; k < latticeSize; k++)
@@ -173,10 +199,12 @@ int main(int argc, char** const argv) {
                                 gsl_rng_uniform(theLattice->generator));
     theLattice->wolff(randomSite);
   }
+  wtime += dclock();
+  printf("%d WARMUPS COMPLETED in %.4g seconds\n", init, wtime);
 
   // Sweeps with measurements turned on
   // Do cluster update after every _gap_ Metropolis sweeps
-  for (i = 0; i < sampleSize; i++) {
+  for (i = 0; i < meas; i++) {
     for (j = 0; j < gap; j++) {
       for (k = 0; k < latticeSize; k++)
         theLattice->metropolis(k);
@@ -202,52 +230,58 @@ int main(int argc, char** const argv) {
     squaredPhi += phiData[i] * phiData[i];
     quartPhi += gsl_pow_4(phiData[i]);
 
-    // Calculate spatial correlations
-    theLattice->calcCorrelations(posCorr);
+    // Print energy and magnetization
+    printf("MEAS %.6g %.6g\n", energyData[i], phiData[i]);
+
+    // Calculate two-point function in both position and momentum space
+    // Only print (real) position-space correlator to reduce output size
+    theLattice->calcCorrelations(posCorr, momCorr, phiData[i]);
   }
 
   // Done with this
   delete theLattice;
 
   // Take averages
-  aveEnergy     /= sampleSize;
-  avePhi        /= sampleSize;
-  avePhiAbs     /= sampleSize;
-  squaredEnergy /= sampleSize;
-  squaredPhi    /= sampleSize;
-  quartPhi      /= sampleSize;
+  aveEnergy     /= meas;
+  avePhi        /= meas;
+  avePhiAbs     /= meas;
+  squaredEnergy /= meas;
+  squaredPhi    /= meas;
+  quartPhi      /= meas;
   for (i = 0; i < halfL; i++) {
-    posCorr[i] /= sampleSize;
-    posCorr[i] -= avePhi * avePhi;
+    posCorr[i] /= meas;
+    momCorr[i] /= meas;
   }
 
-  // Add bootstrapping here if desired
-  specificHeat = squaredEnergy - (aveEnergy * aveEnergy);
-  specificHeat *= latticeSize;
-  susceptibility = squaredPhi - (avePhiAbs * avePhiAbs);
-  susceptibility *= latticeSize;
+  // TODO: If we're going to print these here
+  //       (rather than analyzing them offline with some other script)
+  //       Then we should include jackknife or bootstrap uncertainties...
+  specHeat = squaredEnergy - (aveEnergy * aveEnergy);
+  specHeat *= latticeSize;
+  suscept = squaredPhi - (avePhiAbs * avePhiAbs);
+  suscept *= latticeSize;
 
   // Estimate autocorrelation and standard deviations
   // Use average phi for autocorrelation time calculation
   // Should be roughly the same for all variables
-  t = calcAutocor(sampleSize, phiDataAbs, autocorrelation);
+  t = calcAutocor(meas, phiDataAbs, autocor);
 
   // Use standard formula to generate standard deviations
-  // from autocorrelation time, average, sampleSize, etc
+  // from autocorrelation time, average, meas, etc
   if (t == 1) {            // Autocorrelation time zero
-    autocorTime = 0;
-    energyStDev = 0;
-    phiStDev    = 0;
+    autocorTime = 0.0;
+    energyStDev = 0.0;
+    phiStDev    = 0.0;
   }
   else {
     autocorTime /= (double)(t - 1.0);
-    measurements = sampleSize / autocorTime;
+    measurements = meas / autocorTime;
 
-    energyStDev = 2.0 * autocorTime / sampleSize;
+    energyStDev = 2.0 * autocorTime / meas;
     energyStDev *= squaredEnergy - (aveEnergy * aveEnergy);
     energyStDev = sqrt(energyStDev);
 
-    phiStDev = 2.0 * autocorTime / sampleSize;
+    phiStDev = 2.0 * autocorTime / meas;
     phiStDev *= squaredPhi - (avePhiAbs * avePhiAbs);
     phiStDev = sqrt(phiStDev);
   }
@@ -255,37 +289,34 @@ int main(int argc, char** const argv) {
   // Calculate binder cumulant
   cumulant = 1.0 - quartPhi / (3.0 * squaredPhi * squaredPhi);
 
-  // Calculate bimodality
-  calcBimodality(sampleSize, phiData);
+  // Calculate bimod
+  calcBimodality(meas, phiData);
 
-  // Take Fourier transform of correlation functions and
-  // extrapolate to zero momentum
-  for (i = 0; i < halfL; i++)
-    momCorr[i] = posCorr[i];
-  gsl_fft_real_radix2_transform(momCorr, 1, halfL);
-
-  printf("%lf,%lf,", muSquared, lambda);
-  printf("%lf,%lf,", autocorTime, measurements);
-  printf("%lf,%lf,", aveEnergy, energyStDev);
-  printf("%lf,%lf,", avePhiAbs, phiStDev);
-  printf("%lf,%lf,", specificHeat, susceptibility);
-  printf("%lf,%lf,", cumulant, bimodality);
-  printf("%lf,%lf,", avePhi, scaleFactor);
+  // Print autocorrelation information, raw averages and derived quantities
+  printf("\nAUTOCOR %.6g %.6g %.6g\n", autocorTime, measurements, scaleFactor);
+  printf("AVE %.6g %.6g %.6g %.6g %.6g\n",
+         aveEnergy, energyStDev, avePhiAbs, phiStDev, avePhi);
+  printf("DERIVED %.6g %.6g %.6g %.6g\n", specHeat, suscept, cumulant, bimod);
 
   // Position-space functions only have real components
+  printf("AVE_CORR");
   for (i = 0; i < halfL; i++)
-    printf("%lf,", posCorr[i]);
-
-  // Momentum-space functions are complex in general; print real
-  // and imaginary parts together (half-complex arrangement)
-  printf("%lf,%lf,", momCorr[0], 0.0);
-  for (i = 1; i < (unsigned int)(halfL / 2); i++)
-    printf("%lf,%lf,", momCorr[i], momCorr[halfL - i]);
-  printf("%lf,%lf,", momCorr[(unsigned int)(halfL / 2)], 0.0);
-  for (i = (unsigned int)(halfL / 2) + 1; i < (unsigned int)(halfL); i++)
-    printf("%lf,%lf,", momCorr[halfL - i], -momCorr[i]);
+    printf(" %.6g", posCorr[i]);
   printf("\n");
 
+  // Momentum-space functions are half-complex
+  // Rearrange half-complex format to print real and imaginary parts together
+  printf("AVE_MOM_CORR %.6g 0.0", momCorr[0]);
+  for (i = 1; i < (unsigned int)(halfL / 2); i++)
+    printf(" %.6g %.6g", momCorr[i], momCorr[halfL - i]);
+  printf(" %.6g 0.0", momCorr[(unsigned int)(halfL / 2)]);
+  for (i = (unsigned int)(halfL / 2) + 1; i < (unsigned int)(halfL); i++)
+    printf(" %.6g %.6g", momCorr[halfL - i], -momCorr[i]);
+  printf("\n");
+
+  dtime += dclock();
+  printf("\nTime = %.4g seconds\n", dtime);
+  fflush(stdout);
   return 0;
 }
 // -----------------------------------------------------------------

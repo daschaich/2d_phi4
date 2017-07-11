@@ -2,6 +2,7 @@
 // Lattice for phi^4 with periodic BC
 // Contains implementations of standard methods
 
+#include <gsl/gsl_fft_real.h>       // Fast Fourier Transform
 #include "Lattice.hh"
 // -----------------------------------------------------------------
 
@@ -104,10 +105,14 @@ double Lattice::calcAveragePhi() {
   return currentPhi / latticeSize;
 }
 
-// Calculates connected two-point spatial correlation functions
-void Lattice::calcCorrelations(double posCorr[]) {
+// Calculate and print connected two-point spatial correlation function
+// Subtract the lattice average phibar
+// Add to input arrays rather than overwriting them
+void Lattice::calcCorrelations(double posCorr[], double momCorr[],
+                               double phibar) {
+
   unsigned int i, j, halfL = int(length / 2);
-  double corr[halfL];         // To be added to input array
+  double corr[halfL];         // To be added to input arrays
   unsigned int count[halfL];  // For normalization
   unsigned int x, y;          // Root site
   unsigned int dx, dy;        // Site separations
@@ -129,14 +134,36 @@ void Lattice::calcCorrelations(double posCorr[]) {
         dy = length - dy;
 
       if (dx + dy < halfL) {
-        corr[dx + dy] += lattice[i] * lattice[j];
+        corr[dx + dy] += (lattice[i] - phibar) * (lattice[j] - phibar);
         count[dx + dy]++;
       }
     }
   }
 
+  // Normalize, accumulate and print position-space two-point function
+  printf("CORR");
+  for (i = 0; i < halfL; i++) {
+    corr[i] /= count[i];
+    posCorr[i] += corr[i];
+    printf(" %.6g", corr[i]);
+  }
+  printf("\n");
+
+  // Compute and accumulate momentum-space two-point function
+  // Don't print it to reduce output size
+  // It can be reconstructed from printed  CORR data above
+  gsl_fft_real_radix2_transform(corr, 1, halfL);    // In-place FFT
   for (i = 0; i < halfL; i++)
-    posCorr[i] += corr[i] / count[i];
+    momCorr[i] += corr[i];
+
+  // Rearrange half-complex format to print real and imaginary parts together
+//  printf("MOM_CORR %.6g 0.0", corr[0]);
+//  for (i = 1; i < (unsigned int)(halfL / 2); i++)
+//    printf(" %.6g %.6g", corr[i], corr[halfL - i]);
+//  printf(" %.6g 0.0", corr[(unsigned int)(halfL / 2)]);
+//  for (i = (unsigned int)(halfL / 2) + 1; i < (unsigned int)(halfL); i++)
+//    printf(" %.6g %.6g", corr[halfL - i], -corr[i]);
+//  printf("\n");
 }
 // -----------------------------------------------------------------
 

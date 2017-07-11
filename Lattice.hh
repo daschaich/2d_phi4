@@ -48,7 +48,8 @@ class Lattice {
     // Calculation methods
     double calcTotalEnergy();
     double calcAveragePhi();
-    void calcCorrelations(double spatialCorr[]);
+    void calcCorrelations(double spatialCorr[], double momCorr[],
+                          double phibar);
 
     // Metropolis and Wolff algorithms
     void metropolis(unsigned int site);
