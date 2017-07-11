@@ -106,6 +106,7 @@ double Lattice::calcAveragePhi() {
 }
 
 // Calculate and print connected two-point spatial correlation function
+// Use 'Manhattan distance' -- probably not optimal...
 // Subtract the lattice average phibar
 // Add to input arrays rather than overwriting them
 void Lattice::calcCorrelations(double posCorr[], double momCorr[],
@@ -151,7 +152,7 @@ void Lattice::calcCorrelations(double posCorr[], double momCorr[],
 
   // Compute and accumulate momentum-space two-point function
   // Don't print it to reduce output size
-  // It can be reconstructed from printed  CORR data above
+  // It can be reconstructed from printed CORR data above
   gsl_fft_real_radix2_transform(corr, 1, halfL);    // In-place FFT
   for (i = 0; i < halfL; i++)
     momCorr[i] += corr[i];

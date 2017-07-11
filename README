@@ -35,6 +35,9 @@ After each Metropolis + Wolff iteration we print:
 * The position-space two-point function (L/2 real components)
 * The momentum-space two-point function (L/2 complex components)
 
+The spatial two-point function uses simple "Manhattan distances"
+This can be improved if it would be worthwhile...
+
 At the end of the _meas_ iterations we print:
 * The autocorrelation time of |phi|,
   the resulting (non-integer) number of decorrelated measurements
@@ -61,8 +64,8 @@ then a jackknife or bootstrap procedure should be added...
 We typically fix lambda and vary mu_0 to find the transition
 Listed below are the approximate mu_0 of the transition for various lambda
 The transitions are broader for smaller L and sharpen as L increases
-Larger  (less negative) mu_0 put the system in the symmetric (disorded) phase
-Smaller (more negative) mu_0 put the system in the broken (ordered) phase
+Less negative mu_0 put the system in the symmetric (disordered) phase
+More negative mu_0 put the system in the broken (ordered) phase
   lambda = 1.00 --> mu_0 ~ -1.27
   lambda = 0.70 --> mu_0 ~ -0.95
   lambda = 0.50 --> mu_0 ~ -0.72
