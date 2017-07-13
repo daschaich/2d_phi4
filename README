@@ -21,8 +21,8 @@ The `2d_phi4` program takes five command-line parameters:
 * init is the number of iterations with which to initialize the system
 * meas is the number of iterations subsequently run with measurements
 
-Lagrangian normalization conventions:
-  L = (1/2)d_mu phi d^mu phi - (1/2)mu_0^2 phi^2 - (1/4)lambda phi^4
+Lagrangian normalization conventions (in euclidean space):
+  L = (1/2)d_nu phi d^nu phi + (1/2)mu_0^2 phi^2 + (1/4)lambda phi^4
 
 
 +++OUTPUT

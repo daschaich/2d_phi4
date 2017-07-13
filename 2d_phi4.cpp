@@ -46,7 +46,7 @@ void time_stamp(char *msg) {
   fflush(stdout);
 }
 
-// Double precision CPU time in seconds
+// Double-precision CPU time in seconds
 double dclock() {
   return (((double)clock()) / CLOCKS_PER_SEC);
 }
